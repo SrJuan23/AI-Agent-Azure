@@ -1,0 +1,22 @@
+# Entorno virtual
+.venv/
+env/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code
+.vscode/
+
+# Archivos de entorno
+.env
+
+# Datos
+data/*.json
+
+# Scripts de prueba
+*.log
