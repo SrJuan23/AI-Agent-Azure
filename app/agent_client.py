@@ -11,6 +11,7 @@ class AgentClient:
         self.agent_id = os.getenv("AZURE_AGENT_ORCHESTRATOR_ID")
         self._client = None
         self._agent = None
+        self._thread = None  # Cache del thread para reutilizar
         
         if not self.endpoint or not self.agent_id:
             raise ValueError("Faltan variables de entorno: AZURE_AI_PROJECT_ENDPOINT y AZURE_AGENT_ORCHESTRATOR_ID")
@@ -31,12 +32,18 @@ class AgentClient:
             self._agent = self.client.agents.get_agent(self.agent_id)
             logging.info(f"Agente cargado: {self._agent.id}")
         return self._agent
-
+    
+    def _get_thread(self):
+        """Obtiene o crea un thread reutilizable para la conversación"""
+        if self._thread is None:
+            self._thread = self.client.agents.threads.create()
+            logging.info(f"Thread creado: {self._thread.id}")
+        return self._thread
+    
     def ask_agent(self, message: str) -> str:
         try:
-            # Crear un hilo
-            thread = self.client.agents.threads.create()
-            logging.info(f"Thread creado: {thread.id}")
+            # Reutilizar el mismo thread para mantener el contexto
+            thread = self._get_thread()
             
             # Agregar mensaje del usuario
             self.client.agents.messages.create(
@@ -56,20 +63,19 @@ class AgentClient:
                 logging.error(f"Run failed: {error_msg}")
                 return f"Error en la ejecución del agente: {error_msg}"
             
-            # Obtener mensajes del hilo
+            # Obtener mensajes del hilo (ordenar DESC para obtener los más recientes primero)
             messages = self.client.agents.messages.list(
                 thread_id=thread.id, 
-                order=ListSortOrder.ASCENDING
+                order=ListSortOrder.DESCENDING
             )
             
-            # Buscar el último mensaje del asistente
-            for msg in messages:
-                if hasattr(msg, 'text_messages') and msg.text_messages:
-                    if msg.role == "assistant":
-                        # Obtener el último mensaje de texto
-                        text_msg = msg.text_messages[-1]
-                        if hasattr(text_msg, 'text') and hasattr(text_msg.text, 'value'):
-                            return text_msg.text.value
+            # Convertir a lista y buscar el primer mensaje del asistente (el más reciente)
+            messages_list = list(messages)
+            for msg in messages_list:
+                if hasattr(msg, 'text_messages') and msg.text_messages and msg.role == "assistant":
+                    text_msg = msg.text_messages[-1]
+                    if hasattr(text_msg, 'text') and hasattr(text_msg.text, 'value'):
+                        return text_msg.text.value
             
             return "No se encontró respuesta del asistente."
         
