@@ -129,7 +129,3 @@ Si aparece `DefaultAzureCredential failed to retrieve a token`:
 
 - Asegúrate de que el puerto 8001 no esté en uso
 - Verifica que las variables de entorno estén configuradas correctamente
-
-## Licencia
-
-MIT License
